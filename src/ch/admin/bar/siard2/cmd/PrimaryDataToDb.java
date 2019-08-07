@@ -36,6 +36,20 @@ public class PrimaryDataToDb extends PrimaryDataTransfer
   private long _lRecordsTotal = -1;
   private long _lRecordsPercent = -1;
 
+  private void putProcedureBody(String filename, byte[] pData)
+  		throws IOException
+  {
+  	if (pData == null) {
+      return;
+  	}
+
+  	String path = System.getenv("CUBRID") + File.separator + "java";
+
+    File lOutFile = new File(path + filename);
+    FileOutputStream lFileOutputStream = new FileOutputStream(lOutFile);
+    lFileOutputStream.write(pData);
+    lFileOutputStream.close();
+  }
   /*------------------------------------------------------------------*/
   /** increment the number or records uploaded, issuing a notification,
    * when a percent is reached.
@@ -451,12 +465,54 @@ public class PrimaryDataToDb extends PrimaryDataTransfer
   private void putSchema(Schema schema)
     throws IOException, SQLException
   {
+  	int[] table_list;
     MetaSchema ms = schema.getMetaSchema(); 
     _il.enter(ms.getName());
     SchemaMapping sm = _am.getSchemaMapping(ms.getName());
+    
+    table_list = new int[schema.getTables()];
+    
     for (int iTable = 0; (iTable < schema.getTables()) && (!cancelRequested()); iTable++)
     {
-      Table table = schema.getTable(iTable);
+      table_list[iTable] = iTable;
+    }
+    
+    for (int iTable = 0; (iTable < table_list.length) && (!cancelRequested()); iTable++)
+    {
+    	int fKey_tbl = table_list[iTable];
+      Table table = schema.getTable(fKey_tbl);
+      MetaTable mt = table.getMetaTable();
+
+      int fKeys = mt.getMetaForeignKeys();
+      
+      if (fKeys > 0)
+      {
+      	int ref_count = 0;
+      	for (int i = 0; i < fKeys; i++)
+      	{
+      		MetaForeignKey a = mt.getMetaForeignKey(i);
+      		String ref_tbl = a.getReferencedTable();
+      		for (int k = 0; k < iTable; k++)
+      		{
+        		if (ref_tbl.equalsIgnoreCase(schema.getTable(table_list[k]).getMetaTable().getName()))
+        		{
+        			ref_count++;
+        			break;
+        		}
+      		}
+
+      		if (fKeys == ref_count) break;
+      	}
+      	
+      	if (ref_count < fKeys) // not yet processed referenced table
+      	{
+      		table_list[iTable] = table_list[iTable + 1];
+      		table_list[iTable + 1] = fKey_tbl;
+      		
+      		iTable--;
+      		continue;
+      	}
+      }
       putTable(table,sm);
     }
     _conn.commit();

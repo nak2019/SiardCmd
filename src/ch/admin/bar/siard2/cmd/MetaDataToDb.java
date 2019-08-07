@@ -324,7 +324,9 @@ public class MetaDataToDb
     Set<QualifiedId> setBefore = getTables();
     TableMapping tm = sm.getTableMapping(mt.getName());
     QualifiedId qiTable = new QualifiedId(null,sm.getMappedSchemaName(),tm.getMappedTableName());
-    StringBuilder sbSql = new StringBuilder("CREATE TABLE "+qiTable.format()+"(");
+    StringBuilder sbSql = new StringBuilder("");
+    
+   //StringBuilder sbSql = new StringBuilder("CREATE TABLE "+qiTable.format()+"(");
     List<List<String>> llColumnNames = mt.getColumnNames(supportsArrays(),supportsUdts());
     for (int iExtendedColumn = 0; iExtendedColumn < llColumnNames.size(); iExtendedColumn++)
     {
@@ -337,16 +339,16 @@ public class MetaDataToDb
         sbColumnName.append(listColumn.get(i));
       }
       if (iExtendedColumn > 0)
-        sbSql.append(",\r\n");
+        ; //sbSql.append(",\r\n");
       MetaColumn mc = mt.getMetaColumn(sbColumnName.toString());
       if (mc != null)
-        sbSql.append(createColumn(mc, tm));
+        ; //sbSql.append(createColumn(mc, tm));
       else
       {
-        String sMappedColumnName = tm.getMappedExtendedColumnName(sbColumnName.toString());
-        sbSql.append(SqlLiterals.formatId(sMappedColumnName));
-        sbSql.append(" ");
-        sbSql.append(mt.getType(llColumnNames.get(iExtendedColumn)));
+        //String sMappedColumnName = tm.getMappedExtendedColumnName(sbColumnName.toString());
+        //sbSql.append(SqlLiterals.formatId(sMappedColumnName));
+        //sbSql.append(" ");
+        //sbSql.append(mt.getType(llColumnNames.get(iExtendedColumn)));
       }
     }
     /* add primary key */
@@ -363,11 +365,19 @@ public class MetaDataToDb
         sbPrimaryKey.append(SqlLiterals.formatId(sMappedColumnName));
       }
       sbPrimaryKey.append(")");
-      sbSql.append(",\r\n");
-      sbSql.append(sbPrimaryKey.toString());
+      //sbSql.append(",\r\n");
+      //sbSql.append(sbPrimaryKey.toString());
     }
     /* unique and foreign keys are added in the end of upload */
-    sbSql.append(")");
+    //sbSql.append(")");
+    
+    //int create_idx = mt.getDescription().indexOf("CREATE TABLE");
+    //String create_tbl = mt.getDescription().substring(create_idx);
+    String desc = mt.getDescription();
+    
+    sbSql.append(desc.substring(0, desc.lastIndexOf(";")));
+    //sbSql.append(mt.getDescription());
+    
     /* now execute it */
     _il.event(sbSql.toString());
     Statement stmt = _dmd.getConnection().createStatement();
@@ -418,18 +428,157 @@ public class MetaDataToDb
   private void createTables(MetaSchema ms, SchemaMapping sm)
     throws IOException, SQLException
   {
+  	int[] table_list;
+  	
     _il.enter(ms.getName());
-    for (int iTable = 0; (iTable < ms.getMetaTables()) && (!cancelRequested()); iTable++)
+    
+    table_list = new int[ms.getMetaTables()];
+    
+    for (int iTable = 0; (iTable < table_list.length) && (!cancelRequested()); iTable++)
     {
-      MetaTable mt = ms.getMetaTable(iTable);
+      table_list[iTable] = iTable;
+    }
+    
+    for (int iTable = 0; (iTable < table_list.length) && (!cancelRequested()); iTable++)
+    {
+    	int fKey_tbl = table_list[iTable];
+      MetaTable mt = ms.getMetaTable(fKey_tbl);
+
+      if (mt.getName().equalsIgnoreCase("db_serial") 
+       || mt.getName().equalsIgnoreCase("_db_stored_procedure")) continue;
+      
+      int fKeys = mt.getMetaForeignKeys();
+      
+      if (fKeys > 0)
+      {
+      	int ref_count = 0;
+      	for (int i = 0; i < fKeys; i++)
+      	{
+      		MetaForeignKey a = mt.getMetaForeignKey(i);
+      		String ref_tbl = a.getReferencedTable();
+      		for (int k = 0; k < iTable; k++)
+      		{
+        		if (ref_tbl.equalsIgnoreCase(ms.getMetaTable(table_list[k]).getName()))
+        		{
+        			ref_count++;
+        			break;
+        		}
+      		}
+
+      		if (fKeys == ref_count) break;
+      	}
+      	
+      	if (ref_count < fKeys) // not yet processed referenced table
+      	{
+      		table_list[iTable] = table_list[iTable + 1];
+      		table_list[iTable + 1] = fKey_tbl;
+      		
+      		iTable--;
+      		continue;
+      	}
+      }
+      
       QualifiedId qiTable = new QualifiedId(null,mt.getParentMetaSchema().getName(),mt.getName());
       System.out.println("  Table: "+qiTable.format());
       createTable(mt, sm);
       incTablesCreated();
     }
+/*
+    for (int iTable = 0; (iTable < ms.getMetaTables()) && (!cancelRequested()); iTable++)
+    {
+      MetaTable mt = ms.getMetaTable(iTable);
+      if (mt.getName().equalsIgnoreCase("db_serial")) continue;
+      QualifiedId qiTable = new QualifiedId(null,mt.getParentMetaSchema().getName(),mt.getName());
+      System.out.println("  Table: "+qiTable.format());
+      createTable(mt, sm);
+      incTablesCreated();
+    }
+*/  
+    for (int iTable = 0; (iTable < ms.getMetaTables()) && (!cancelRequested()); iTable++)
+    {
+      MetaTable mt = ms.getMetaTable(iTable);
+      createTriggers(mt);
+    }
     _il.exit();
   } /* createTables */
 
+  /*------------------------------------------------------------------*/
+  /** create all procedures of a schema.
+   * @param ms schema meta data.
+   * @param sm mapping of names in schema.
+   * @throws IOException if an I/O error occurred.
+   * @throws SQLException if a database error occurred.
+   */
+  private void createProcedures(MetaSchema ms, SchemaMapping sm)
+    throws IOException, SQLException
+  {
+//    _il.enter(ms.getName());
+    String path = java.lang.System.getProperty("java.class.path");
+    
+    for (int iRoutine = 0; iRoutine < ms.getMetaRoutines(); iRoutine++) {    	
+    	String head = "CREATE " + ms.getMetaRoutine(iRoutine).getSpecificName() + " " + ms.getMetaRoutine(iRoutine).getName() + " (";
+    	String tail = ms.getMetaRoutine(iRoutine).getDescription();
+    	String proc_body = head;
+    	boolean first = true;
+    	for (int iParam = 0; iParam < ms.getMetaRoutine(iRoutine).getMetaParameters(); iParam++) {
+    		if (!first) proc_body = proc_body + ",";
+    		proc_body = proc_body + " " + ms.getMetaRoutine(iRoutine).getMetaParameter(iParam).getName();
+    		proc_body = proc_body + " " + ms.getMetaRoutine(iRoutine).getMetaParameter(iParam).getMode();
+    		proc_body = proc_body + " " + ms.getMetaRoutine(iRoutine).getMetaParameter(iParam).getType();
+    		
+    		first = false;
+    	}
+
+    	proc_body = proc_body + ")" + " " + tail;
+    	
+    	StringBuilder sbSql = new StringBuilder("");
+    	
+    	sbSql.append(proc_body);
+      
+      /* now execute it */
+      _il.event(sbSql.toString());
+      Statement stmt = _dmd.getConnection().createStatement();
+      stmt.setQueryTimeout(_iQueryTimeoutSeconds);
+      stmt.executeUpdate(sbSql.toString());
+      stmt.close();
+      
+      System.out.println(proc_body);
+    }
+    _il.enter(path);
+    ms.getMetaView(1);
+    _il.exit();
+  } /* createTriggers */
+  
+  /*------------------------------------------------------------------*/
+  /** create all triggers of a schema.
+   * @param ms schema meta data.
+   * @param sm mapping of names in schema.
+   * @throws IOException if an I/O error occurred.
+   * @throws SQLException if a database error occurred.
+   */
+  private void createTriggers(MetaTable mt)
+    throws IOException, SQLException
+  {
+    _il.enter(mt.getName());
+    
+  
+    for (int iTrigger = 0; iTrigger < mt.getMetaTriggers(); iTrigger++)
+    {
+    	MetaTrigger mtr = mt.getMetaTrigger(iTrigger);
+    	
+    	StringBuilder sbSql = new StringBuilder("");
+    	sbSql.append(mtr.getDescription());
+      
+      /* now execute it */
+      _il.event(sbSql.toString());
+      Statement stmt = _dmd.getConnection().createStatement();
+      stmt.setQueryTimeout(_iQueryTimeoutSeconds);
+      stmt.executeUpdate(sbSql.toString());
+      stmt.close();
+    }
+    _il.exit();
+  } /* createTriggers */
+  
   /*------------------------------------------------------------------*/
   /** check, whether table exists in the database.
    * @param sMangledSchema schema name.
@@ -565,6 +714,7 @@ public class MetaDataToDb
         dropTypes(ms,sm);
         createTypes(ms,sm);
         createTables(ms,sm);
+        createProcedures(ms,sm);
       }
       else
         throw new SQLException("Schema \""+sm.getMappedSchemaName()+"\" could not be created! "+
@@ -593,6 +743,10 @@ public class MetaDataToDb
       for (int iTable = 0; iTable < ms.getMetaTables(); iTable++)
       {
         MetaTable mt = ms.getMetaTable(iTable);
+        if (sm.getMappedTableName(mt.getName()).equalsIgnoreCase("db_serial"))
+        	continue;
+        if (sm.getMappedTableName(mt.getName()).equalsIgnoreCase("_db_stored_procedure"))
+        	continue;
         if (existsTable(sm.getMappedSchemaName(), sm.getMappedTableName(mt.getName())))
           iTablesDropped++;
       }

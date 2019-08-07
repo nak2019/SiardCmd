@@ -244,7 +244,7 @@ public class PrimaryDataFromDb extends PrimaryDataTransfer
           oValue = rs.getObject(iPosition);
           break;
         case Types.ARRAY:
-          oValue = rs.getArray(iPosition);
+        	oValue = rs.getString(iPosition);
           break;
         case Types.STRUCT:
           oValue = rs.getObject(iPosition);
@@ -305,13 +305,13 @@ public class PrimaryDataFromDb extends PrimaryDataTransfer
       lRecord++;
       if ((lRecord % _lREPORT_RECORDS) == 0)
       {
-        System.out.println("    Record "+String.valueOf(lRecord)+" ("+sw.formatRate(rr.getByteCount()-lBytesStart,sw.stop())+" kB/s)");
+        System.out.println("[" + table.getMetaTable().getName() + "] Record "+String.valueOf(lRecord)+" ("+sw.formatRate(rr.getByteCount()-lBytesStart,sw.stop())+" kB/s)");
       	lBytesStart = rr.getByteCount();
       	sw.start();
       }
       incDownloaded();
     }
-    System.out.println("    Record "+String.valueOf(lRecord)+" ("+sw.formatRate(rr.getByteCount()-lBytesStart,sw.stop())+" kB/s)");
+    System.out.println("[" + table.getMetaTable().getName() + "] Record "+String.valueOf(lRecord)+" ("+sw.formatRate(rr.getByteCount()-lBytesStart,sw.stop())+" kB/s)");
     System.out.println("    Total: "+sw.formatLong(lRecord)+" records ("+sw.formatLong(rr.getByteCount())+" bytes in "+sw.formatMs()+" ms)");
     // System.out.println("    Create: "+swCreate.formatMs()+" ms, Get: "+swGet.formatMs()+" ms, Put: "+swPut.formatMs()+" ms");
     // System.out.println("    Get Cell: "+_swGetCell.formatMs()+" ms, Get Value: "+_swGetValue.formatMs()+" ms, Set Value: "+_swSetValue.formatMs()+" ms");

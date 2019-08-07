@@ -1231,6 +1231,61 @@ public class MetaDataFromDb
   } /* getColumns */
 
   /*------------------------------------------------------------------*/
+  /** download trigger meta data of a table.
+   * @param mt meta data.
+   * @throws IOException if an I/O error occurred.
+   * @throws SQLException if a database error occurred.
+   */
+  private void getTriggers(MetaTable mt)
+    throws IOException, SQLException
+  {  	
+  	StringBuilder sbCondition = new StringBuilder();
+	String cond;
+			
+	String tableName = ((BaseDatabaseMetaData)_dmd).toPattern(mt.getName());
+			
+	sbCondition.append("target_class in (SELECT class_of FROM _db_class WHERE");
+	sbCondition.append(" class_name = ");
+	sbCondition.append("'" + tableName + "'");
+	sbCondition.append(")");
+
+    String sSql = "SELECT\n" +
+    		"name,\n" +
+    		"decode(condition_type,null,decode(action_time,1,'BEFORE',2,'AFTER',3,'INSTEAD'), decode(condition_time, null, 'AFTER', 1, 'BEFORE', 2, 'AFTER', 3, 'INSTEAD')) as action_time,\n" +
+    		"'EXECUTE '|| decode(condition_type,null,'',decode(action_time,1,'',2,'AFTER ',3,'DEFERRED '))|| decode(action_type,1,action_definition,2,'reject',3,'invalidate transaction',4,'PRINT ''' || action_definition||'''') as triggered_action,\n" +
+    		"decode(event,0,'UPDATE',1, 'STATEMENT UPDATE',2,'DELETE',3,'STATEMENT DELETE',4,'INSERT',5,'STATEMENT INSERT',8,'COMMIT',9,'ROLLBACK') || " +
+    		"' ON ['||(select target_class_name from db_trig where trigger_name=name)|| ']' ||\n" +
+    		"  decode(target_attribute,null,'',' (['||target_attribute||'])') as trigger_event,\n" +
+    		" (select 'CREATE TRIGGER '||'[' || name || ']' ||\n" + 
+    		"         ' STATUS '|| decode(status,1,'INACTIVE',2,'ACTIVE') ||\n" + 
+    		"         ' PRIORITY '||cast(PRIORITY as numeric(10,5)) ||' ' ||\n" + 
+    		"	        decode(condition_type,null,decode(action_time,1,'BEFORE ',2,'AFTER ',3,'DEFERRED '), decode(condition_time, null, 'AFTER', 1, 'BEFORE', 2, 'AFTER', 3, 'DEFERRED')) || ' ' ||\n" + 
+    		"	        decode(event,0,'UPDATE',1, 'STATEMENT UPDATE',2,'DELETE',3,'STATEMENT DELETE',4,'INSERT',5,'STATEMENT INSERT',8,'COMMIT',9,'ROLLBACK') ||\n" + 
+    		"	        ' ON ['||(select target_class_name from db_trig where trigger_name=name)|| ']' ||\n" + 
+    		"	        decode(target_attribute,null,'',' (['||target_attribute||'])') ||\n" + 
+    		"         decode(condition,null,'',' if '||condition) ||\n" + 
+    		"        ' EXECUTE '|| decode(condition_type,null,'',decode(action_time,1,'',2,'AFTER ',3,'DEFERRED '))|| decode(action_type,1,action_definition,2,'reject',3,'invalidate transaction',4,'PRINT ''' || action_definition)\n" + 
+    		"from db_trigger b\n" + 
+    		"where a.name = b.name) as description\n" +
+		"FROM db_trigger a\n" +
+ 		"WHERE " + sbCondition.toString();
+		
+	  Statement stmt = _dmd.getConnection().createStatement();
+	  ResultSet rs = stmt.unwrap(Statement.class).executeQuery(sSql);
+		  
+  	while(rs.next()) {
+	  	MetaTrigger mtr = mt.createMetaTrigger(rs.getString("name"));
+	  	mtr.setActionTime(rs.getString("action_time"));
+	  	mtr.setTriggeredAction(rs.getString("triggered_action"));
+	  	mtr.setAliasList(null);
+	  	mtr.setDescription(rs.getString("description"));
+	  	mtr.setTriggerEvent(rs.getString("trigger_event"));
+  	}
+	  	
+  	rs.close();
+  } /* getTriggers */
+  
+  /*------------------------------------------------------------------*/
   /** get all global meta data.
    * @throws IOException if an I/O error occurred.
    * @throws SQLException in a database error occurred.
@@ -1309,6 +1364,7 @@ public class MetaDataFromDb
       getPrimaryKey(mt);
       getForeignKeys(mt);
       getUniqueKeys(mt);
+      getTriggers(mt); /* Added for Trigger */
       getRows(mt);
       incTablesAnalyzed();
     }

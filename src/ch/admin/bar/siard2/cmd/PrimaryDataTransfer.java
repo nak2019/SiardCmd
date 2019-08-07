@@ -27,7 +27,7 @@ public class PrimaryDataTransfer
   protected Connection _conn = null;
   protected Archive _archive = null;
   protected ArchiveMapping _am = null;
-  protected int _iQueryTimeoutSeconds = 30;
+  protected int _iQueryTimeoutSeconds = 3600;
   public void setQueryTimeout(int iQueryTimeoutSeconds) { _iQueryTimeoutSeconds = iQueryTimeoutSeconds; }
   protected boolean _bSupportsArrays = false;
   public boolean supportsArrays() { return _bSupportsArrays; }
@@ -46,6 +46,7 @@ public class PrimaryDataTransfer
   protected ResultSet openTable(Table table, SchemaMapping sm)
     throws IOException, SQLException
   {
+  	int concurrency = (sm == null)?ResultSet.CONCUR_READ_ONLY:ResultSet.CONCUR_UPDATABLE;
     MetaTable mt = table.getMetaTable();
     _il.enter(mt.getName());
     /* schema mapping is null on download */
@@ -83,9 +84,11 @@ public class PrimaryDataTransfer
     sbSql.append("\r\n FROM "+qiTable.format());
     /* execute query */
     _il.event(sbSql.toString());
-    _conn.setHoldability(ResultSet.HOLD_CURSORS_OVER_COMMIT);
-    Statement stmt = _conn.createStatement(ResultSet.TYPE_FORWARD_ONLY,ResultSet.CONCUR_UPDATABLE,ResultSet.HOLD_CURSORS_OVER_COMMIT);
-    stmt.setQueryTimeout(_iQueryTimeoutSeconds);
+    _conn.setHoldability(ResultSet.CLOSE_CURSORS_AT_COMMIT);
+    Statement stmt = _conn.createStatement(ResultSet.TYPE_FORWARD_ONLY,concurrency,ResultSet.CLOSE_CURSORS_AT_COMMIT);
+    //stmt.setQueryTimeout(_iQueryTimeoutSeconds);
+    stmt.setQueryTimeout(3600);
+ 
     ResultSet rs = stmt.executeQuery(sbSql.toString());
     _il.exit(rs);
     return rs;
