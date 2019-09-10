@@ -494,6 +494,13 @@ public class PrimaryDataToDb extends PrimaryDataTransfer
       		String ref_tbl = a.getReferencedTable();
       		for (int k = 0; k < iTable; k++)
       		{
+          if (ref_tbl.equalsIgnoreCase(mt.getName()))
+        		{
+      				  // self ref
+        			 ref_count++;
+        			 break;
+        		}
+          
         		if (ref_tbl.equalsIgnoreCase(schema.getTable(table_list[k]).getMetaTable().getName()))
         		{
         			ref_count++;
@@ -506,9 +513,12 @@ public class PrimaryDataToDb extends PrimaryDataTransfer
       	
       	if (ref_count < fKeys) // not yet processed referenced table
       	{
-      		table_list[iTable] = table_list[iTable + 1];
-      		table_list[iTable + 1] = fKey_tbl;
+      		int refTbl;
+      		for (refTbl = iTable; refTbl < table_list.length - 1; refTbl++) {
+      			table_list[refTbl] = table_list[refTbl + 1];
+      		}
       		
+      		table_list[refTbl] = fKey_tbl;
       		iTable--;
       		continue;
       	}
