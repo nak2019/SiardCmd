@@ -959,6 +959,7 @@ public class MetaDataFromDb
       if (sSpecificName == null)
         sSpecificName = sProcedureName;
       MetaRoutine mr = ms.createMetaRoutine(sSpecificName);
+      mr.setCharacteristic("PROCEDURE");
       mr.setName(sProcedureName);
       if (sRemarks != null)
         mr.setDescription(sRemarks);
@@ -984,6 +985,7 @@ public class MetaDataFromDb
           QualifiedId qiFunction = new QualifiedId(null,sFunctionSchema,sFunctionName);
           System.out.println("  Function: "+qiFunction.format());
           mr = ms.createMetaRoutine(sSpecificName);
+	  mr.setCharacteristic("FUNCTION");
           mr.setName(sFunctionName);
           if (sRemarks != null)
             mr.setDescription(sRemarks);
