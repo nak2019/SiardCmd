@@ -402,49 +402,68 @@ public class PrimaryDataToDb extends PrimaryDataTransfer
    * @throws SQLException if a database error occurred.
    */
   private void putTable(Table table,SchemaMapping sm)
-    throws IOException, SQLException
+    throws IOException, SQLException, NullPointerException
   {
     _il.enter(table);
+    ResultSet rs = null;
+    RecordDispenser rd = null;
+    Statement stmt = null;
+    Set<Object>setResources;
+    long lRecord = 0;
+    Record record;
+    StopWatch sw = StopWatch.getInstance();
+    long lBytesStart = 0;
+    
     MetaTable mt = table.getMetaTable();
     QualifiedId qiTable = new QualifiedId(null,
       mt.getParentMetaSchema().getName(),
       mt.getName());
     System.out.println("  Table: "+qiTable.format());
-    RecordDispenser rd = table.openRecords();
-    ResultSet rs = openTable(table,sm);
-    Statement stmt = rs.getStatement();
-    Set<Object>setResources = new HashSet<Object>();
-    long lRecord = 0;
-    Record record = null;
-    StopWatch sw = StopWatch.getInstance();
-  	sw.start();
-  	long lBytesStart = rd.getByteCount();
-    while ((lRecord < mt.getRows()) && (!cancelRequested())) 
-    {
-      record = rd.get();
-      setResources.clear();
-      rs.moveToInsertRow();
-      putRecord(record,rs,setResources);
-      /***
-      ResultSetMetaData rsmd = rs.getMetaData();
-      for (int i = 0; i < rsmd.getColumnCount(); i++)
-      {
-        Object o = rs.getObject(i+1);
-        System.out.println(String.valueOf(i)+". "+rsmd.getColumnName(i+1)+"/"+rsmd.getColumnLabel(i+1)+": "+o.toString());
-      }
-      ***/
-      rs.insertRow();
-      freeResources(setResources);
-      rs.moveToCurrentRow();
-      lRecord++;
-      if ((lRecord % lCOMMIT_RECORDS) == 0)
-      {
-        System.out.println("    Record "+String.valueOf(lRecord)+" ("+sw.formatRate(rd.getByteCount()-lBytesStart,sw.stop())+" kB/s)");
-      	lBytesStart = rd.getByteCount();
-      	sw.start();
-      }
-      incUploaded();
+    try {
+      rd = table.openRecords();
+      rs = openTable(table,sm);
+	    stmt = rs.getStatement();
+	    setResources = new HashSet<Object>();
+	    lRecord = 0;
+	    record = null;
+	    sw = StopWatch.getInstance();
+	  	sw.start();
+	  	lBytesStart = rd.getByteCount();
+	    while ((lRecord < mt.getRows()) && (!cancelRequested())) 
+	    {
+	      record = rd.get();
+	      setResources.clear();
+	      rs.moveToInsertRow();
+	      putRecord(record,rs,setResources);
+	      /***
+	      ResultSetMetaData rsmd = rs.getMetaData();
+	      for (int i = 0; i < rsmd.getColumnCount(); i++)
+	      {
+	        Object o = rs.getObject(i+1);
+	        System.out.println(String.valueOf(i)+". "+rsmd.getColumnName(i+1)+"/"+rsmd.getColumnLabel(i+1)+": "+o.toString());
+	      }
+	      ***/
+	      rs.insertRow();
+	      freeResources(setResources);
+	      rs.moveToCurrentRow();
+	      lRecord++;
+	      if ((lRecord % lCOMMIT_RECORDS) == 0)
+	      {
+	        System.out.println("    Record "+String.valueOf(lRecord)+" ("+sw.formatRate(rd.getByteCount()-lBytesStart,sw.stop())+" kB/s)");
+	      	lBytesStart = rd.getByteCount();
+	      	sw.start();
+	      }
+	      incUploaded();
+	    }
+    } catch (java.lang.NullPointerException e) {
+    	StackTraceElement[] ste = e.getStackTrace();
+      String className = ste[0].getClassName();
+      String methodName = ste[0].getMethodName();
+      int lineNumber = ste[0].getLineNumber();
+      String fileName = ste[0].getFileName();
+    	System.out.println("Exception = " + className + "." + methodName + "[" + fileName + "]." + lineNumber);
     }
+    
     System.out.println("    Record "+String.valueOf(lRecord)+" ("+sw.formatRate(rd.getByteCount()-lBytesStart,sw.stop())+" kB/s)");
     System.out.println("    Total: "+sw.formatLong(lRecord)+" records ("+sw.formatLong(rd.getByteCount())+" bytes in "+sw.formatMs()+" ms)");
     if (!rs.isClosed())
@@ -465,64 +484,13 @@ public class PrimaryDataToDb extends PrimaryDataTransfer
   private void putSchema(Schema schema)
     throws IOException, SQLException
   {
-  	int[] table_list;
     MetaSchema ms = schema.getMetaSchema(); 
     _il.enter(ms.getName());
     SchemaMapping sm = _am.getSchemaMapping(ms.getName());
-    
-    table_list = new int[schema.getTables()];
-    
+   
     for (int iTable = 0; (iTable < schema.getTables()) && (!cancelRequested()); iTable++)
     {
-      table_list[iTable] = iTable;
-    }
-    
-    for (int iTable = 0; (iTable < table_list.length) && (!cancelRequested()); iTable++)
-    {
-    	int fKey_tbl = table_list[iTable];
-      Table table = schema.getTable(fKey_tbl);
-      MetaTable mt = table.getMetaTable();
-
-      int fKeys = mt.getMetaForeignKeys();
-      
-      if (fKeys > 0)
-      {
-      	int ref_count = 0;
-      	for (int i = 0; i < fKeys; i++)
-      	{
-      		MetaForeignKey a = mt.getMetaForeignKey(i);
-      		String ref_tbl = a.getReferencedTable();
-      		for (int k = 0; k < iTable; k++)
-      		{
-          if (ref_tbl.equalsIgnoreCase(mt.getName()))
-        		{
-      				  // self ref
-        			 ref_count++;
-        			 break;
-        		}
-          
-        		if (ref_tbl.equalsIgnoreCase(schema.getTable(table_list[k]).getMetaTable().getName()))
-        		{
-        			ref_count++;
-        			break;
-        		}
-      		}
-
-      		if (fKeys == ref_count) break;
-      	}
-      	
-      	if (ref_count < fKeys) // not yet processed referenced table
-      	{
-      		int refTbl;
-      		for (refTbl = iTable; refTbl < table_list.length - 1; refTbl++) {
-      			table_list[refTbl] = table_list[refTbl + 1];
-      		}
-      		
-      		table_list[refTbl] = fKey_tbl;
-      		iTable--;
-      		continue;
-      	}
-      }
+      Table table = schema.getTable(iTable);
       putTable(table,sm);
     }
     _conn.commit();
@@ -583,7 +551,7 @@ public class PrimaryDataToDb extends PrimaryDataTransfer
     throws SQLException
   {
     super(conn,archive,am,bSupportsArrays,bSupportsDistincts,bSupportsUdts);
-    conn.setAutoCommit(false);
+    conn.setAutoCommit(true);
   } /* constructor PrimaryDataTransfer */
 
   /*------------------------------------------------------------------*/
