@@ -985,7 +985,7 @@ public class MetaDataFromDb
           QualifiedId qiFunction = new QualifiedId(null,sFunctionSchema,sFunctionName);
           System.out.println("  Function: "+qiFunction.format());
           mr = ms.createMetaRoutine(sSpecificName);
-	  mr.setCharacteristic("FUNCTION");
+          mr.setCharacteristic("FUNCTION");
           mr.setName(sFunctionName);
           if (sRemarks != null)
             mr.setDescription(sRemarks);

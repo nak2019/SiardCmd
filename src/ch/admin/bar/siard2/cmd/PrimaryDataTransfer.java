@@ -27,7 +27,7 @@ public class PrimaryDataTransfer
   protected Connection _conn = null;
   protected Archive _archive = null;
   protected ArchiveMapping _am = null;
-  protected int _iQueryTimeoutSeconds = 3600;
+  protected int _iQueryTimeoutSeconds = 30;
   public void setQueryTimeout(int iQueryTimeoutSeconds) { _iQueryTimeoutSeconds = iQueryTimeoutSeconds; }
   protected boolean _bSupportsArrays = false;
   public boolean supportsArrays() { return _bSupportsArrays; }
