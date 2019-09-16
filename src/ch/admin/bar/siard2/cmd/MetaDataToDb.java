@@ -321,9 +321,9 @@ public class MetaDataToDb
     throws IOException, SQLException
   {
     _il.enter(mt.getName());
-    Set<QualifiedId> setBefore = getTables();
+    //Set<QualifiedId> setBefore = getTables();
     TableMapping tm = sm.getTableMapping(mt.getName());
-    QualifiedId qiTable = new QualifiedId(null,sm.getMappedSchemaName(),tm.getMappedTableName());
+    //QualifiedId qiTable = new QualifiedId(null,sm.getMappedSchemaName(),tm.getMappedTableName());
     StringBuilder sbSql = new StringBuilder("");
     
    //StringBuilder sbSql = new StringBuilder("CREATE TABLE "+qiTable.format()+"(");
@@ -351,31 +351,41 @@ public class MetaDataToDb
         //sbSql.append(mt.getType(llColumnNames.get(iExtendedColumn)));
       }
     }
-    /* add primary key */
-    MetaUniqueKey mpk = mt.getMetaPrimaryKey();
-    if (mpk != null)
-    {
-      StringBuilder sbPrimaryKey = new StringBuilder();
-      sbPrimaryKey.append("PRIMARY KEY(");
-      for (int iColumn = 0; iColumn < mpk.getColumns(); iColumn++)
+  	
+    String crt = mt.getDescription();
+  	
+    if (mt.getDescription().indexOf("CONSTRAINT") >= 0) {
+    	String before_constraint = crt.substring(0, crt.indexOf("CONSTRAINT"));
+    	before_constraint = before_constraint.substring(0, before_constraint.lastIndexOf(","));
+    	
+    	sbSql.append(before_constraint);
+      /* add primary key */
+      MetaUniqueKey mpk = mt.getMetaPrimaryKey();
+      if (mpk != null)
       {
-        if (iColumn > 0)
-          sbPrimaryKey.append(",");
-        String sMappedColumnName = tm.getMappedColumnName(mpk.getColumn(iColumn));
-        sbPrimaryKey.append(SqlLiterals.formatId(sMappedColumnName));
+        StringBuilder sbPrimaryKey = new StringBuilder();
+        sbPrimaryKey.append("PRIMARY KEY(");
+        for (int iColumn = 0; iColumn < mpk.getColumns(); iColumn++)
+        {
+          if (iColumn > 0)
+            sbPrimaryKey.append(",");
+          String sMappedColumnName = tm.getMappedColumnName(mpk.getColumn(iColumn));
+          sbPrimaryKey.append(SqlLiterals.formatId(sMappedColumnName));
+        }
+        sbPrimaryKey.append(")");
+        sbSql.append(",\r\n");
+        sbSql.append(sbPrimaryKey.toString());
       }
-      sbPrimaryKey.append(")");
-      //sbSql.append(",\r\n");
-      //sbSql.append(sbPrimaryKey.toString());
+    	String after_contraint = crt.substring(crt.lastIndexOf(")"));
+    	
+    	sbSql.append(after_contraint); 
     }
+    else
+    	sbSql.append(crt);
+ 
     /* unique and foreign keys are added in the end of upload */
     //sbSql.append(")");
     
-    //int create_idx = mt.getDescription().indexOf("CREATE TABLE");
-    //String create_tbl = mt.getDescription().substring(create_idx);
-    String desc = mt.getDescription();
-    
-    sbSql.append(desc.substring(0, desc.lastIndexOf(";")));
     //sbSql.append(mt.getDescription());
     
     /* now execute it */
@@ -384,9 +394,11 @@ public class MetaDataToDb
     stmt.setQueryTimeout(_iQueryTimeoutSeconds);
     stmt.executeUpdate(sbSql.toString());
     stmt.close();
+ 
     /* record names of created table and columns */
-    Set<QualifiedId> setCreated = getTables();
-    setCreated.removeAll(setBefore);
+    //Set<QualifiedId> setCreated = getTables();
+    //setCreated.removeAll(setBefore);
+    /*
     if (!setCreated.contains(qiTable)) 
     {
       for (Iterator<QualifiedId> iterCreated = setCreated.iterator(); iterCreated.hasNext(); )
@@ -394,6 +406,7 @@ public class MetaDataToDb
       sm.setMappedSchemaName(qiTable.getSchema());
       tm.setMappedTableName(qiTable.getName());
     }
+ 
     ResultSet rsColumns = _dmd.getColumns(null, 
       ((BaseDatabaseMetaData)_dmd).toPattern(qiTable.getSchema()), 
       ((BaseDatabaseMetaData)_dmd).toPattern(qiTable.getName()),
@@ -415,6 +428,7 @@ public class MetaDataToDb
         tm.putMappedExtendedColumnName(sExtendedColumnName,sMappedColumnName);
     }
     rsColumns.close();
+    */
     _il.exit();
   } /* createTable */
   
@@ -427,81 +441,22 @@ public class MetaDataToDb
    */
   private void createTables(MetaSchema ms, SchemaMapping sm)
     throws IOException, SQLException
-  {
-  	int[] table_list;
-  	
+  {  	
     _il.enter(ms.getName());
-    
-    table_list = new int[ms.getMetaTables()];
-    
-    for (int iTable = 0; (iTable < table_list.length) && (!cancelRequested()); iTable++)
-    {
-      table_list[iTable] = iTable;
-    }
-    
-    for (int iTable = 0; (iTable < table_list.length) && (!cancelRequested()); iTable++)
-    {
-    	int fKey_tbl = table_list[iTable];
-      MetaTable mt = ms.getMetaTable(fKey_tbl);
-
-      if (mt.getName().equalsIgnoreCase("db_serial") 
-       || mt.getName().equalsIgnoreCase("_db_stored_procedure")) continue;
-      
-      int fKeys = mt.getMetaForeignKeys();
-      
-      if (fKeys > 0)
-      {
-      	int ref_count = 0;
-      	for (int i = 0; i < fKeys; i++)
-      	{
-      		MetaForeignKey a = mt.getMetaForeignKey(i);
-      		String ref_tbl = a.getReferencedTable();
-      		for (int k = 0; k < iTable; k++)
-      		{
-          if (ref_tbl.equalsIgnoreCase(mt.getName())) {
-      				  ref_count++;
-      				  break;
-      			 }
-        		if (ref_tbl.equalsIgnoreCase(ms.getMetaTable(table_list[k]).getName()))
-        		{
-        			ref_count++;
-        			break;
-        		}
-      		}
-
-      		if (fKeys == ref_count) break;
-      	}
-      	
-      	if (ref_count < fKeys) // not yet processed referenced table
-      	{
-      		int refTbl;
-      		for (refTbl = iTable; refTbl < table_list.length - 1; refTbl++) {
-      			table_list[refTbl] = table_list[refTbl + 1];
-      		}
-      		
-      		table_list[refTbl] = fKey_tbl;
-      		iTable--;
-
-      		continue;
-      	}
-      }
-      
-      QualifiedId qiTable = new QualifiedId(null,mt.getParentMetaSchema().getName(),mt.getName());
-      System.out.println("  Table: "+qiTable.format());
-      createTable(mt, sm);
-      incTablesCreated();
-    }
-/*
+ 
     for (int iTable = 0; (iTable < ms.getMetaTables()) && (!cancelRequested()); iTable++)
     {
       MetaTable mt = ms.getMetaTable(iTable);
-      if (mt.getName().equalsIgnoreCase("db_serial")) continue;
+      
+      if (mt.getName().equalsIgnoreCase("db_serial") 
+          || mt.getName().equalsIgnoreCase("_db_stored_procedure")) continue;
+
       QualifiedId qiTable = new QualifiedId(null,mt.getParentMetaSchema().getName(),mt.getName());
       System.out.println("  Table: "+qiTable.format());
       createTable(mt, sm);
       incTablesCreated();
     }
-*/  
+  
     for (int iTable = 0; (iTable < ms.getMetaTables()) && (!cancelRequested()); iTable++)
     {
       MetaTable mt = ms.getMetaTable(iTable);
@@ -524,7 +479,7 @@ public class MetaDataToDb
     String path = java.lang.System.getProperty("java.class.path");
     
     for (int iRoutine = 0; iRoutine < ms.getMetaRoutines(); iRoutine++) {    	
-    	String head = "CREATE " + ms.getMetaRoutine(iRoutine).getSpecificName() + " " + ms.getMetaRoutine(iRoutine).getName() + " (";
+    	String head = "CREATE " + ms.getMetaRoutine(iRoutine).getCharacteristic() + " " + ms.getMetaRoutine(iRoutine).getName() + " (";
     	String tail = ms.getMetaRoutine(iRoutine).getDescription();
     	String proc_body = head;
     	boolean first = true;
