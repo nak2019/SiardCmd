@@ -720,6 +720,7 @@ public class MetaDataToDb
     _il.enter();
     System.out.println("Meta Data");
     _progress = progress;
+    _dbms = _md.getDatabaseProduct().substring(0,6);
     /* compute number of tables to create */
     _iTables = 0;
     for (int iSchema = 0; iSchema < _md.getMetaSchemas(); iSchema++)
@@ -764,8 +765,8 @@ public class MetaDataToDb
     throws SQLException
   {
     _il.enter();
-    
-    _dbms = _dmd.getDatabaseProductName().substring(0,6);
+ 
+    _dbms = _md.getDatabaseProduct().substring(0,6);
     int iTablesDropped = 0;
     for (int iSchema = 0; iSchema < _md.getMetaSchemas(); iSchema++)
     {
