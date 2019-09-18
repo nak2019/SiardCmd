@@ -244,7 +244,12 @@ public class PrimaryDataFromDb extends PrimaryDataTransfer
           oValue = rs.getObject(iPosition);
           break;
         case Types.ARRAY:
-        	oValue = rs.getString(iPosition);
+        	if (_dbms.equals("CUBRID")) {
+        		oValue = rs.getString(iPosition);
+        	}
+        	else {
+        		oValue = rs.getArray(iPosition);
+        	}
           break;
         case Types.STRUCT:
           oValue = rs.getObject(iPosition);

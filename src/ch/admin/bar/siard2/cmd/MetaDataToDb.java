@@ -501,8 +501,10 @@ public class MetaDataToDb
     {
       MetaTable mt = ms.getMetaTable(iTable);
       
-      if (mt.getName().equalsIgnoreCase("db_serial") 
-          || mt.getName().equalsIgnoreCase("_db_stored_procedure")) continue;
+      if (_dbms.equals("CUBRID")) {
+	      if (mt.getName().equalsIgnoreCase("db_serial") 
+	          || mt.getName().equalsIgnoreCase("_db_stored_procedure")) continue;
+      }
 
       QualifiedId qiTable = new QualifiedId(null,mt.getParentMetaSchema().getName(),mt.getName());
       System.out.println("  Table: "+qiTable.format());
@@ -737,7 +739,9 @@ public class MetaDataToDb
         dropTypes(ms,sm);
         createTypes(ms,sm);
         createTables(ms,sm);
-        createProcedures(ms,sm);
+        if (_dbms.equals("CUBRID")) {
+        		createProcedures(ms,sm);
+      	}
       }
       else
         throw new SQLException("Schema \""+sm.getMappedSchemaName()+"\" could not be created! "+
@@ -766,10 +770,13 @@ public class MetaDataToDb
       for (int iTable = 0; iTable < ms.getMetaTables(); iTable++)
       {
         MetaTable mt = ms.getMetaTable(iTable);
-        if (sm.getMappedTableName(mt.getName()).equalsIgnoreCase("db_serial"))
-        	continue;
-        if (sm.getMappedTableName(mt.getName()).equalsIgnoreCase("_db_stored_procedure"))
-        	continue;
+        
+        if (_dbms.equals("CUBRID")) {
+	        if (sm.getMappedTableName(mt.getName()).equalsIgnoreCase("db_serial"))
+	        	continue;
+	        if (sm.getMappedTableName(mt.getName()).equalsIgnoreCase("_db_stored_procedure"))
+	        	continue;
+        }
         if (existsTable(sm.getMappedSchemaName(), sm.getMappedTableName(mt.getName())))
           iTablesDropped++;
       }

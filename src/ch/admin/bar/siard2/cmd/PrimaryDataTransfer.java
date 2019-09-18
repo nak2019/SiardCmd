@@ -35,6 +35,7 @@ public class PrimaryDataTransfer
   public boolean supportsDistincts() { return _bSupportsDistincts; }
   protected boolean _bSupportsUdts = false;
   public boolean supportsUdts() { return _bSupportsUdts; }
+  public String _dbms;
 
   /*------------------------------------------------------------------*/
   /** issue a SELECT query for all fields of the table.
@@ -47,6 +48,7 @@ public class PrimaryDataTransfer
     throws IOException, SQLException
   {
   	int concurrency = (sm == null)?ResultSet.CONCUR_READ_ONLY:ResultSet.CONCUR_UPDATABLE;
+  	_dbms = _conn.getMetaData().getDatabaseProductName().substring(0,6);
     MetaTable mt = table.getMetaTable();
     _il.enter(mt.getName());
     /* schema mapping is null on download */

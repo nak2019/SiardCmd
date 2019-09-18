@@ -551,7 +551,7 @@ public class PrimaryDataToDb extends PrimaryDataTransfer
     throws SQLException
   {
     super(conn,archive,am,bSupportsArrays,bSupportsDistincts,bSupportsUdts);
-    conn.setAutoCommit(true);
+    conn.setAutoCommit(false);
   } /* constructor PrimaryDataTransfer */
 
   /*------------------------------------------------------------------*/
