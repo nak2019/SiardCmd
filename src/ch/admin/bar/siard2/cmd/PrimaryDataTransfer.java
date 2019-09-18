@@ -48,7 +48,7 @@ public class PrimaryDataTransfer
     throws IOException, SQLException
   {
   	int concurrency = (sm == null)?ResultSet.CONCUR_READ_ONLY:ResultSet.CONCUR_UPDATABLE;
-  	_dbms = _conn.getMetaData().getDatabaseProductName().substring(0,6);
+  	_dbms = _conn.getMetaData().getDatabaseProductName();
 
     MetaTable mt = table.getMetaTable();
     _il.enter(mt.getName());

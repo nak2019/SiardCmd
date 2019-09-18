@@ -264,9 +264,7 @@ public class SiardToDb
           /* create types and tables */
           MetaData md = _archive.getMetaData();
           MetaDataToDb mdtd = MetaDataToDb.newInstance(_conn.getMetaData(),md,_mapSchemas);
-          mdtd.setQueryTimeout(_iQueryTimeoutSeconds);
-
-          //mdtd._dbms = md.getDatabaseProduct().substring(0,6);          
+          mdtd.setQueryTimeout(_iQueryTimeoutSeconds);       
           if (_bOverwrite || ((mdtd.tablesDroppedByUpload() == 0) && (mdtd.typesDroppedByUpload() == 0)))
           {
             if (!mdtd.supportsUdts())
