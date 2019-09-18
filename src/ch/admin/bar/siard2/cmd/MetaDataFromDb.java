@@ -1242,14 +1242,14 @@ public class MetaDataFromDb
     throws IOException, SQLException
   {  	
   	StringBuilder sbCondition = new StringBuilder();
-	String cond;
+  	String cond;
 			
-	String tableName = ((BaseDatabaseMetaData)_dmd).toPattern(mt.getName());
+  	String tableName = ((BaseDatabaseMetaData)_dmd).toPattern(mt.getName());
 			
-	sbCondition.append("target_class in (SELECT class_of FROM _db_class WHERE");
-	sbCondition.append(" class_name = ");
-	sbCondition.append("'" + tableName + "'");
-	sbCondition.append(")");
+  	sbCondition.append("target_class in (SELECT class_of FROM _db_class WHERE");
+  	sbCondition.append(" class_name = ");
+  	sbCondition.append("'" + tableName + "'");
+  	sbCondition.append(")");
 
     String sSql = "SELECT\n" +
     		"name,\n" +
@@ -1343,6 +1343,8 @@ public class MetaDataFromDb
     _iTablesPercent = (_iTables+99)/100;
     _iTablesAnalyzed = 0;
     rs = _dmd.getTables(null, "%", "%", asTypes);
+    try {
+    _dbms = _md.getDatabaseProduct().substring(0,6);
     while ((rs.next()) && (!cancelRequested()))
     {
       String sTableSchema = rs.getString("TABLE_SCHEM");
@@ -1366,9 +1368,20 @@ public class MetaDataFromDb
       getPrimaryKey(mt);
       getForeignKeys(mt);
       getUniqueKeys(mt);
-      getTriggers(mt); /* Added for Trigger */
+      if (_dbms.equals("CUBRID")) {
+      	getTriggers(mt); /* Added for Trigger */
+      }
       getRows(mt);
       incTablesAnalyzed();
+    }
+    }
+    catch (java.lang.NullPointerException e) {
+    	StackTraceElement[] ste = e.getStackTrace();
+      String className = ste[0].getClassName();
+      String methodName = ste[0].getMethodName();
+      int lineNumber = ste[0].getLineNumber();
+      String fileName = ste[0].getFileName();
+    	System.out.println("Exception = " + className + "." + methodName + "[" + fileName + "]." + lineNumber);
     }
     rs.close();
   } /* getTables */

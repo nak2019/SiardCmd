@@ -21,6 +21,7 @@ public abstract class MetaDataBase
   public boolean supportsUdts() { return _bSupportsUdts; }
   private Set<QualifiedId> _setUsedTypes = null;
 
+  public String _dbms;
   /*------------------------------------------------------------------*/
   /** if a type is only used for procedure parameters but not for table
    * columns, then we do not treat the database as "supporting" the type.
