@@ -38,6 +38,8 @@ public class MetaDataToDb
   private int _iTablesCreated = -1;
   private int _iTables = -1;
   private int _iTablesPercent = -1;
+  
+  public String _dbms;
 
   /*------------------------------------------------------------------*/
   /** increment the number or tables created, issuing a notification,
@@ -762,6 +764,8 @@ public class MetaDataToDb
     throws SQLException
   {
     _il.enter();
+    
+    _dbms = _dmd.getDatabaseProductName().substring(0,6);
     int iTablesDropped = 0;
     for (int iSchema = 0; iSchema < _md.getMetaSchemas(); iSchema++)
     {
