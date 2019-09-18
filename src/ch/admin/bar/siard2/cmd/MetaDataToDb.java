@@ -321,12 +321,11 @@ public class MetaDataToDb
     throws IOException, SQLException
   {
     _il.enter(mt.getName());
-    //Set<QualifiedId> setBefore = getTables();
+    Set<QualifiedId> setBefore = getTables();
     TableMapping tm = sm.getTableMapping(mt.getName());
-    //QualifiedId qiTable = new QualifiedId(null,sm.getMappedSchemaName(),tm.getMappedTableName());
-    StringBuilder sbSql = new StringBuilder("");
+    QualifiedId qiTable = new QualifiedId(null,sm.getMappedSchemaName(),tm.getMappedTableName());
     
-   //StringBuilder sbSql = new StringBuilder("CREATE TABLE "+qiTable.format()+"(");
+    StringBuilder sbSql = new StringBuilder("CREATE TABLE "+qiTable.format()+"(");
     List<List<String>> llColumnNames = mt.getColumnNames(supportsArrays(),supportsUdts());
     for (int iExtendedColumn = 0; iExtendedColumn < llColumnNames.size(); iExtendedColumn++)
     {
@@ -339,16 +338,107 @@ public class MetaDataToDb
         sbColumnName.append(listColumn.get(i));
       }
       if (iExtendedColumn > 0)
-        ; //sbSql.append(",\r\n");
+        sbSql.append(",\r\n");
       MetaColumn mc = mt.getMetaColumn(sbColumnName.toString());
       if (mc != null)
-        ; //sbSql.append(createColumn(mc, tm));
+        sbSql.append(createColumn(mc, tm));
       else
       {
-        //String sMappedColumnName = tm.getMappedExtendedColumnName(sbColumnName.toString());
-        //sbSql.append(SqlLiterals.formatId(sMappedColumnName));
-        //sbSql.append(" ");
-        //sbSql.append(mt.getType(llColumnNames.get(iExtendedColumn)));
+        String sMappedColumnName = tm.getMappedExtendedColumnName(sbColumnName.toString());
+        sbSql.append(SqlLiterals.formatId(sMappedColumnName));
+        sbSql.append(" ");
+        sbSql.append(mt.getType(llColumnNames.get(iExtendedColumn)));
+      }
+    }
+    /* add primary key */
+    MetaUniqueKey mpk = mt.getMetaPrimaryKey();
+    if (mpk != null)
+    {
+      StringBuilder sbPrimaryKey = new StringBuilder();
+      sbPrimaryKey.append("PRIMARY KEY(");
+      for (int iColumn = 0; iColumn < mpk.getColumns(); iColumn++)
+      {
+        if (iColumn > 0)
+          sbPrimaryKey.append(",");
+        String sMappedColumnName = tm.getMappedColumnName(mpk.getColumn(iColumn));
+        sbPrimaryKey.append(SqlLiterals.formatId(sMappedColumnName));
+      }
+      sbPrimaryKey.append(")");
+      sbSql.append(",\r\n");
+      sbSql.append(sbPrimaryKey.toString());
+    }
+    
+    /* unique and foreign keys are added in the end of upload */
+    sbSql.append(")");
+    
+    /* now execute it */
+    _il.event(sbSql.toString());
+    Statement stmt = _dmd.getConnection().createStatement();
+    stmt.setQueryTimeout(_iQueryTimeoutSeconds);
+    stmt.executeUpdate(sbSql.toString());
+    stmt.close();
+ 
+    /* record names of created table and columns */
+    Set<QualifiedId> setCreated = getTables();
+    setCreated.removeAll(setBefore);
+    
+    if (!setCreated.contains(qiTable)) 
+    {
+      for (Iterator<QualifiedId> iterCreated = setCreated.iterator(); iterCreated.hasNext(); )
+        qiTable = iterCreated.next();
+      sm.setMappedSchemaName(qiTable.getSchema());
+      tm.setMappedTableName(qiTable.getName());
+    }
+ 
+    ResultSet rsColumns = _dmd.getColumns(null, 
+      ((BaseDatabaseMetaData)_dmd).toPattern(qiTable.getSchema()), 
+      ((BaseDatabaseMetaData)_dmd).toPattern(qiTable.getName()),
+      "%");
+    while (rsColumns.next())
+    {
+      String sMappedColumnName = rsColumns.getString("COLUMN_NAME");
+      int iOrdinalPosition = rsColumns.getInt("ORDINAL_POSITION");
+      List<String> listColumn = llColumnNames.get(iOrdinalPosition-1);
+      StringBuilder sbColumnName = new StringBuilder();
+      for (int i = 0; i < listColumn.size(); i++)
+      {
+        if (i > 0)
+          sbColumnName.append(".");
+        sbColumnName.append(listColumn.get(i));
+      }
+      String sExtendedColumnName = sbColumnName.toString();
+      if (!sMappedColumnName.equals(tm.getMappedColumnName(sExtendedColumnName)))
+        tm.putMappedExtendedColumnName(sExtendedColumnName,sMappedColumnName);
+    }
+    rsColumns.close();
+
+    _il.exit();
+  } /* createTable */
+  
+  /*------------------------------------------------------------------*/
+  /** create a CREATE TABLE statement from table meta data and execute it.
+   * @param mt table meta data.
+   * @param sm mapping of names in schema.
+   * @throws IOException if an I/O error occurred.
+   * @throws SQLException if a database error occurred.
+   */
+  private void createCubridTable(MetaTable mt, SchemaMapping sm)
+    throws IOException, SQLException
+  {
+    _il.enter(mt.getName());
+    TableMapping tm = sm.getTableMapping(mt.getName());
+    StringBuilder sbSql = new StringBuilder("");
+
+    List<List<String>> llColumnNames = mt.getColumnNames(supportsArrays(),supportsUdts());
+    for (int iExtendedColumn = 0; iExtendedColumn < llColumnNames.size(); iExtendedColumn++)
+    {
+      List<String> listColumn = llColumnNames.get(iExtendedColumn);
+      StringBuilder sbColumnName = new StringBuilder();
+      for (int i = 0; i < listColumn.size(); i++)
+      {
+        if (i > 0)
+          sbColumnName.append(".");
+        sbColumnName.append(listColumn.get(i));
       }
     }
   	
@@ -384,9 +474,6 @@ public class MetaDataToDb
     	sbSql.append(crt);
  
     /* unique and foreign keys are added in the end of upload */
-    //sbSql.append(")");
-    
-    //sbSql.append(mt.getDescription());
     
     /* now execute it */
     _il.event(sbSql.toString());
@@ -395,40 +482,6 @@ public class MetaDataToDb
     stmt.executeUpdate(sbSql.toString());
     stmt.close();
  
-    /* record names of created table and columns */
-    //Set<QualifiedId> setCreated = getTables();
-    //setCreated.removeAll(setBefore);
-    /*
-    if (!setCreated.contains(qiTable)) 
-    {
-      for (Iterator<QualifiedId> iterCreated = setCreated.iterator(); iterCreated.hasNext(); )
-        qiTable = iterCreated.next();
-      sm.setMappedSchemaName(qiTable.getSchema());
-      tm.setMappedTableName(qiTable.getName());
-    }
- 
-    ResultSet rsColumns = _dmd.getColumns(null, 
-      ((BaseDatabaseMetaData)_dmd).toPattern(qiTable.getSchema()), 
-      ((BaseDatabaseMetaData)_dmd).toPattern(qiTable.getName()),
-      "%");
-    while (rsColumns.next())
-    {
-      String sMappedColumnName = rsColumns.getString("COLUMN_NAME");
-      int iOrdinalPosition = rsColumns.getInt("ORDINAL_POSITION");
-      List<String> listColumn = llColumnNames.get(iOrdinalPosition-1);
-      StringBuilder sbColumnName = new StringBuilder();
-      for (int i = 0; i < listColumn.size(); i++)
-      {
-        if (i > 0)
-          sbColumnName.append(".");
-        sbColumnName.append(listColumn.get(i));
-      }
-      String sExtendedColumnName = sbColumnName.toString();
-      if (!sMappedColumnName.equals(tm.getMappedColumnName(sExtendedColumnName)))
-        tm.putMappedExtendedColumnName(sExtendedColumnName,sMappedColumnName);
-    }
-    rsColumns.close();
-    */
     _il.exit();
   } /* createTable */
   
@@ -453,14 +506,21 @@ public class MetaDataToDb
 
       QualifiedId qiTable = new QualifiedId(null,mt.getParentMetaSchema().getName(),mt.getName());
       System.out.println("  Table: "+qiTable.format());
-      createTable(mt, sm);
+      if (_dbms.equals("CUBRID")) {
+      	createCubridTable(mt, sm);
+      }
+      else {
+      	createTable(mt, sm);
+      }
       incTablesCreated();
     }
   
-    for (int iTable = 0; (iTable < ms.getMetaTables()) && (!cancelRequested()); iTable++)
-    {
-      MetaTable mt = ms.getMetaTable(iTable);
-      createTriggers(mt);
+    if (_dbms.equals("CUBRID")) {
+	    for (int iTable = 0; (iTable < ms.getMetaTables()) && (!cancelRequested()); iTable++)
+	    {
+	      MetaTable mt = ms.getMetaTable(iTable);
+	      createTriggers(mt);
+	    }
     }
     _il.exit();
   } /* createTables */
