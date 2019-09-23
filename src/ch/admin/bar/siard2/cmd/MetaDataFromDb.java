@@ -45,6 +45,7 @@ public class MetaDataFromDb
   private int _iTables = -1;
   private int _iTablesPercent = -1;
 
+  public boolean _cubrid = false;
   /*====================================================================
   Start global metadata dump and check.
   ====================================================================*/
@@ -1344,36 +1345,35 @@ public class MetaDataFromDb
     _iTablesAnalyzed = 0;
     rs = _dmd.getTables(null, "%", "%", asTypes);
     try {
-    _dbms = _md.getDatabaseProduct().substring(0,6);
-    while ((rs.next()) && (!cancelRequested()))
-    {
-      String sTableSchema = rs.getString("TABLE_SCHEM");
-      String sTableName = rs.getString("TABLE_NAME");
-      String sTableType = rs.getString("TABLE_TYPE");
-      if (!Arrays.asList(asTypes).contains(sTableType))
-        throw new IOException("Invalid table type found!");
-      String sRemarks = rs.getString("REMARKS");
-      Schema schema = _md.getArchive().getSchema(sTableSchema);
-      if (schema == null)
-        schema = _md.getArchive().createSchema(sTableSchema);
-      Table table = schema.getTable(sTableName);
-      if (table == null)
-        table = schema.createTable(sTableName);
-      MetaTable mt = table.getMetaTable();
-      QualifiedId qiTable = new QualifiedId(null,sTableSchema,sTableName);
-      System.out.println("  Table: "+qiTable.format());
-      if ((sRemarks != null) && (sRemarks.length() > 0))
-        mt.setDescription(sRemarks);
-      getColumns(mt);
-      getPrimaryKey(mt);
-      getForeignKeys(mt);
-      getUniqueKeys(mt);
-      if (_dbms.equals("CUBRID")) {
-      	getTriggers(mt); /* Added for Trigger */
-      }
-      getRows(mt);
-      incTablesAnalyzed();
-    }
+	    while ((rs.next()) && (!cancelRequested()))
+	    {
+	      String sTableSchema = rs.getString("TABLE_SCHEM");
+	      String sTableName = rs.getString("TABLE_NAME");
+	      String sTableType = rs.getString("TABLE_TYPE");
+	      if (!Arrays.asList(asTypes).contains(sTableType))
+	        throw new IOException("Invalid table type found!");
+	      String sRemarks = rs.getString("REMARKS");
+	      Schema schema = _md.getArchive().getSchema(sTableSchema);
+	      if (schema == null)
+	        schema = _md.getArchive().createSchema(sTableSchema);
+	      Table table = schema.getTable(sTableName);
+	      if (table == null)
+	        table = schema.createTable(sTableName);
+	      MetaTable mt = table.getMetaTable();
+	      QualifiedId qiTable = new QualifiedId(null,sTableSchema,sTableName);
+	      System.out.println("  Table: "+qiTable.format());
+	      if ((sRemarks != null) && (sRemarks.length() > 0))
+	        mt.setDescription(sRemarks);
+	      getColumns(mt);
+	      getPrimaryKey(mt);
+	      getForeignKeys(mt);
+	      getUniqueKeys(mt);
+	      if (_cubrid) {
+	      	getTriggers(mt); /* Added for Trigger */
+	      }
+	      getRows(mt);
+	      incTablesAnalyzed();
+	    }
     }
     catch (java.lang.NullPointerException e) {
     	StackTraceElement[] ste = e.getStackTrace();

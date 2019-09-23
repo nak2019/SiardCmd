@@ -315,6 +315,7 @@ public class SiardFromDb
 	        {
 	          System.out.println("Connected to "+_conn.getMetaData().getURL().toString());
 	          _conn.setAutoCommit(false);
+	          
 	          /* open SIARD archive */
 	          _archive = ArchiveImpl.newInstance();
 	          File fileSiard = _fileSiard;
@@ -332,6 +333,7 @@ public class SiardFromDb
 	          }
 	          /* get meta data from DB */
 	          MetaDataFromDb mdfd = MetaDataFromDb.newInstance(_conn.getMetaData(), _archive.getMetaData());
+	          mdfd._cubrid = _conn.getMetaData().getDatabaseProductName().equals("CUBRID");
 	          mdfd.setQueryTimeout(_iQueryTimeoutSeconds);
 	          mdfd.download(_bViewsAsTables, (_uriExternalLobFolder != null), null);
 	          /* set external LOB stuff */

@@ -488,9 +488,16 @@ public class PrimaryDataToDb extends PrimaryDataTransfer
     _il.enter(ms.getName());
     SchemaMapping sm = _am.getSchemaMapping(ms.getName());
    
+    String todb = _conn.getMetaData().getDatabaseProductName();
+    String ardb = _archive.getMetaData().getDatabaseProduct().substring(0,6);
     for (int iTable = 0; (iTable < schema.getTables()) && (!cancelRequested()); iTable++)
     {
-      Table table = schema.getTable(iTable);
+      Table table = schema.getTable(iTable);      
+      if (ardb.equals("CUBRID") && !todb.equals("CUBRID")) {
+        MetaTable mt = table.getMetaTable();
+      	if (mt.getName().equals("_db_stored_procedure")) continue;
+      	if (mt.getName().equals("db_serial")) continue;
+      }
       putTable(table,sm);
     }
     _conn.commit();

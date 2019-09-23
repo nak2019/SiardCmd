@@ -39,7 +39,9 @@ public class MetaDataToDb
   private int _iTables = -1;
   private int _iTablesPercent = -1;
   
-  public String _dbms;
+  public boolean _cubrid = false;
+  public String _ardb;
+  public String _todb;
 
   /*------------------------------------------------------------------*/
   /** increment the number or tables created, issuing a notification,
@@ -265,7 +267,17 @@ public class MetaDataToDb
     MetaType mt = mc.getMetaType();
     if (mt == null)
     {
-      sbSql.append(mc.getType());
+    	String typeName = mc.getType();
+      if (_todb.equals("CUBRID")) {
+      	if (typeName.length() > 4) {
+      		if (typeName.substring(1,4).equals("LOB")) {
+      			typeName = typeName.substring(0,4);
+      		}
+      	}
+      }
+
+      sbSql.append(typeName);
+      
       if (mc.getCardinality() >= 0)
         sbSql.append(" ARRAY["+String.valueOf(mc.getCardinality())+"]");
     }
@@ -327,7 +339,12 @@ public class MetaDataToDb
     TableMapping tm = sm.getTableMapping(mt.getName());
     QualifiedId qiTable = new QualifiedId(null,sm.getMappedSchemaName(),tm.getMappedTableName());
     
-    StringBuilder sbSql = new StringBuilder("CREATE TABLE "+qiTable.format()+"(");
+    StringBuilder sbSql;
+    
+    if (_todb.equals("CUBRID"))
+    	sbSql = new StringBuilder("CREATE TABLE "+tm.getMappedTableName()+"(");
+    else
+    	sbSql = new StringBuilder("CREATE TABLE "+qiTable.format()+"(");
     List<List<String>> llColumnNames = mt.getColumnNames(supportsArrays(),supportsUdts());
     for (int iExtendedColumn = 0; iExtendedColumn < llColumnNames.size(); iExtendedColumn++)
     {
@@ -503,14 +520,15 @@ public class MetaDataToDb
     {
       MetaTable mt = ms.getMetaTable(iTable);
       
-      if (_dbms.equals("CUBRID")) {
+      if (_ardb.equals("CUBRID")) {
 	      if (mt.getName().equalsIgnoreCase("db_serial") 
 	          || mt.getName().equalsIgnoreCase("_db_stored_procedure")) continue;
       }
 
       QualifiedId qiTable = new QualifiedId(null,mt.getParentMetaSchema().getName(),mt.getName());
       System.out.println("  Table: "+qiTable.format());
-      if (_dbms.equals("CUBRID")) {
+
+      if (_cubrid) {
       	createCubridTable(mt, sm);
       }
       else {
@@ -519,7 +537,7 @@ public class MetaDataToDb
       incTablesCreated();
     }
   
-    if (_dbms.equals("CUBRID")) {
+    if (_cubrid) {
 	    for (int iTable = 0; (iTable < ms.getMetaTables()) && (!cancelRequested()); iTable++)
 	    {
 	      MetaTable mt = ms.getMetaTable(iTable);
@@ -720,7 +738,7 @@ public class MetaDataToDb
     _il.enter();
     System.out.println("Meta Data");
     _progress = progress;
-    _dbms = _md.getDatabaseProduct().substring(0,6);
+
     /* compute number of tables to create */
     _iTables = 0;
     for (int iSchema = 0; iSchema < _md.getMetaSchemas(); iSchema++)
@@ -742,7 +760,7 @@ public class MetaDataToDb
         dropTypes(ms,sm);
         createTypes(ms,sm);
         createTables(ms,sm);
-        if (_dbms.equals("CUBRID")) {
+        if (_cubrid) {
         		createProcedures(ms,sm);
       	}
       }
@@ -765,8 +783,6 @@ public class MetaDataToDb
     throws SQLException
   {
     _il.enter();
- 
-    _dbms = _md.getDatabaseProduct().substring(0,6);
     int iTablesDropped = 0;
     for (int iSchema = 0; iSchema < _md.getMetaSchemas(); iSchema++)
     {
@@ -776,7 +792,7 @@ public class MetaDataToDb
       {
         MetaTable mt = ms.getMetaTable(iTable);
         
-        if (_dbms.equals("CUBRID")) {
+        if (_ardb.equals("CUBRID")) {
 	        if (sm.getMappedTableName(mt.getName()).equalsIgnoreCase("db_serial"))
 	        	continue;
 	        if (sm.getMappedTableName(mt.getName()).equalsIgnoreCase("_db_stored_procedure"))

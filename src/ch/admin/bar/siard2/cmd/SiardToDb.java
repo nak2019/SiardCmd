@@ -238,7 +238,7 @@ public class SiardToDb
   constructor
   ====================================================================*/
 	/*------------------------------------------------------------------*/
-	/** runs main program of SiardFromDb. */
+	/** runs main program of SiardToDb. */
 	SiardToDb(String asArgs[])
 	  throws IOException, SQLException
   {
@@ -261,10 +261,15 @@ public class SiardToDb
         {
           System.out.println("Connected to "+_conn.getMetaData().getURL().toString());
           _conn.setAutoCommit(false);
+          
           /* create types and tables */
           MetaData md = _archive.getMetaData();
           MetaDataToDb mdtd = MetaDataToDb.newInstance(_conn.getMetaData(),md,_mapSchemas);
-          mdtd.setQueryTimeout(_iQueryTimeoutSeconds);       
+          mdtd._todb = _conn.getMetaData().getDatabaseProductName();
+          mdtd._ardb = _archive.getMetaData().getDatabaseProduct().substring(0,6);
+          mdtd._cubrid = mdtd._todb.equals("CUBRID") && mdtd._ardb.equals("CUBRID");
+
+          mdtd.setQueryTimeout(_iQueryTimeoutSeconds);
           if (_bOverwrite || ((mdtd.tablesDroppedByUpload() == 0) && (mdtd.typesDroppedByUpload() == 0)))
           {
             if (!mdtd.supportsUdts())
