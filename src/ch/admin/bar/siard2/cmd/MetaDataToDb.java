@@ -342,7 +342,7 @@ public class MetaDataToDb
     StringBuilder sbSql;
     
     if (_todb.equals("CUBRID"))
-    	sbSql = new StringBuilder("CREATE TABLE "+tm.getMappedTableName()+"(");
+    	sbSql = new StringBuilder("CREATE TABLE "+mt.getName()+"(");
     else
     	sbSql = new StringBuilder("CREATE TABLE "+qiTable.format()+"(");
     List<List<String>> llColumnNames = mt.getColumnNames(supportsArrays(),supportsUdts());

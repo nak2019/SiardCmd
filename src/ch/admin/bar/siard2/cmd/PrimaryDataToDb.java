@@ -36,20 +36,6 @@ public class PrimaryDataToDb extends PrimaryDataTransfer
   private long _lRecordsTotal = -1;
   private long _lRecordsPercent = -1;
 
-  private void putProcedureBody(String filename, byte[] pData)
-  		throws IOException
-  {
-  	if (pData == null) {
-      return;
-  	}
-
-  	String path = System.getenv("CUBRID") + File.separator + "java";
-
-    File lOutFile = new File(path + filename);
-    FileOutputStream lFileOutputStream = new FileOutputStream(lOutFile);
-    lFileOutputStream.write(pData);
-    lFileOutputStream.close();
-  }
   /*------------------------------------------------------------------*/
   /** increment the number or records uploaded, issuing a notification,
    * when a percent is reached.
