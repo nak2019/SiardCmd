@@ -269,11 +269,35 @@ public class MetaDataToDb
     {
     	String typeName = mc.getType();
       if (_todb.equals("CUBRID")) {
-      	if (typeName.length() > 4) {
-      		if (typeName.substring(1,4).equals("LOB")) {
-      			typeName = typeName.substring(0,4);
-      		}
-      	}
+    		if (typeName.length() >=4 && typeName.substring(1,4).equalsIgnoreCase("LOB")) {
+    			typeName = typeName.substring(0,4);
+    		}
+    		else if (typeName.length() >=5
+    				&& (   typeName.substring(0,5).equalsIgnoreCase("FLOAT")
+    						|| typeName.substring(0,7).equalsIgnoreCase("DECIMAL")
+    						|| typeName.substring(0,7).equalsIgnoreCase("NUMERIC")
+    						)
+    				) {
+    			if (mc.getLength() > 38) {
+    				typeName = typeName.substring(0,5) + "(38";
+    				if (mc.getScale() > 0)
+    					typeName = typeName + ", " + mc.getScale();
+
+    				typeName = typeName + ")";
+    			}
+    		}
+    		else if (typeName.length() >=4 && typeName.contains("CHAR")) {
+    			int idx = typeName.indexOf("(");
+    			if (typeName.substring(0,idx).equals("VARNCHAR")) {
+    				typeName = "VARCHAR" + typeName.substring(idx);
+    			}
+    			else if (typeName.substring(0,idx).equals("NCHAR")) {
+    				typeName = "CHAR" + typeName.substring(idx);
+    			}
+    			if (mc.getLength() > 1073741823) {
+    				if (idx >= 0) typeName = typeName.substring(0,idx) + "(1073741823)";
+    			}
+    		}
       }
 
       sbSql.append(typeName);
