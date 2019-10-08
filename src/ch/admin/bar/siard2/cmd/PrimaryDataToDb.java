@@ -110,7 +110,17 @@ public class PrimaryDataToDb extends PrimaryDataTransfer
       SchemaMapping sm = _am.getSchemaMapping(mt.getParentMetaSchema().getName());
       TableMapping tm = sm.getTableMapping(mt.getName());
       QualifiedId qiTable = new QualifiedId(null,sm.getMappedSchemaName(),tm.getMappedTableName());
-      String sSql = "ALTER TABLE "+qiTable.format();
+
+      String tableName = qiTable.format();
+    	
+      if (_dbms.equals("CUBRID")) {
+      	tableName = tm.getMappedTableName();
+      	if (!tableName.contains("\"")) {
+      		tableName = "\"" + tableName + "\"";
+      	}
+      }
+      
+      String sSql = "ALTER TABLE "+tableName;
       for (int iCandidateKey = 0; iCandidateKey < mt.getMetaCandidateKeys(); iCandidateKey++)
       {
         MetaUniqueKey mck = mt.getMetaCandidateKey(iCandidateKey);
@@ -119,8 +129,14 @@ public class PrimaryDataToDb extends PrimaryDataTransfer
         {
           if (iColumn > 0)
             sbSql.append(",");
-          String sMappedColumnName = tm.getMappedColumnName(mck.getColumn(iColumn));
-          sbSql.append(SqlLiterals.formatId(sMappedColumnName));
+          
+          String ckName = SqlLiterals.formatId(tm.getMappedColumnName(mck.getColumn(iColumn)));
+          if (_dbms.equals("CUBRID")) {
+          	if (!ckName.contains("\"")) {
+          		ckName = "\"" + ckName + "\"";
+          	}
+          }
+          sbSql.append(ckName);
         }
         sbSql.append(")");
         Statement stmt = conn.createStatement();
@@ -140,18 +156,39 @@ public class PrimaryDataToDb extends PrimaryDataTransfer
       SchemaMapping sm = _am.getSchemaMapping(mt.getParentMetaSchema().getName());
       TableMapping tm = sm.getTableMapping(mt.getName());
       QualifiedId qiTable = new QualifiedId(null,sm.getMappedSchemaName(),tm.getMappedTableName());
-      String sSql = "ALTER TABLE "+qiTable.format();
+      
+      String sSql;
+      String tableName = qiTable.format();
+    	
+      if (_dbms.equals("CUBRID")) {
+      	tableName = tm.getMappedTableName();
+      	if (!tableName.contains("\"")) {
+      		tableName = "\"" + tableName + "\"";
+      	}
+      }
+
+      sSql = "ALTER TABLE "+tableName;
       for (int iForeignKey = 0; iForeignKey < mt.getMetaForeignKeys(); iForeignKey++)
       {
         MetaForeignKey mfk = mt.getMetaForeignKey(iForeignKey);
-        StringBuilder sbSql = new StringBuilder(sSql + " ADD CONSTRAINT " + mfk.getName()+" FOREIGN KEY(");
+        
+        String fkName = mfk.getName();
+        StringBuilder sbSql = new StringBuilder(sSql + " ADD CONSTRAINT " + fkName+" FOREIGN KEY(");
         SchemaMapping smReferenced = sm;
         if (mfk.getReferencedSchema() != null)
           smReferenced = _am.getSchemaMapping(mfk.getReferencedSchema());
         TableMapping tmReferenced = smReferenced.getTableMapping(mfk.getReferencedTable());
         QualifiedId qiReferenced = new QualifiedId(null,
           smReferenced.getMappedSchemaName(),tmReferenced.getMappedTableName());
-        StringBuilder sbReferences = new StringBuilder(" REFERENCES "+qiReferenced.format()+"(");
+        
+        String rfName = qiReferenced.format();
+        if (_dbms.equals("CUBRID")) {
+        	rfName = tmReferenced.getMappedTableName();
+        	if (!rfName.contains("\"")) {
+        		rfName = "\"" + rfName + "\"";
+        	}
+        }
+        StringBuilder sbReferences = new StringBuilder(" REFERENCES "+rfName+"(");
         for (int iReference = 0; iReference < mfk.getReferences(); iReference++)
         {
           if (iReference > 0)
@@ -159,8 +196,19 @@ public class PrimaryDataToDb extends PrimaryDataTransfer
             sbSql.append(", ");
             sbReferences.append(", ");
           }
-          sbSql.append(tm.getMappedColumnName(mfk.getColumn(iReference)));
-          sbReferences.append(tmReferenced.getMappedColumnName(mfk.getReferenced(iReference)));
+          
+          String fkCol = tm.getMappedColumnName(mfk.getColumn(iReference));
+          String rfCol = tmReferenced.getMappedColumnName(mfk.getReferenced(iReference));
+          if (_dbms.equals("CUBRID")) {
+          	if (!fkCol.contains("\"")) {
+          		fkCol = "\"" + fkCol + "\"";
+          	}
+          	if (!rfCol.contains("\"")) {
+          		rfCol = "\"" + rfCol + "\"";
+          	}
+          }
+          sbSql.append(fkCol);
+          sbReferences.append(rfCol);
         }
         sbSql.append(")");
         sbReferences.append(")");

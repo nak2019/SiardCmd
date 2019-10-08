@@ -262,7 +262,15 @@ public class MetaDataToDb
     throws IOException
   {
     StringBuilder sbSql = new StringBuilder();
-    sbSql.append(SqlLiterals.formatId(tm.getMappedColumnName(mc.getName())));
+    
+    String name = SqlLiterals.formatId(tm.getMappedColumnName(mc.getName()));
+    if (_todb.equals("CUBRID")) {
+    	if (!name.contains("\"")) {
+    		name = "\"" + name + "\"";
+    	}
+    }
+    
+    sbSql.append(name);
     sbSql.append(" ");
     MetaType mt = mc.getMetaType();
     if (mt == null)
@@ -396,8 +404,13 @@ public class MetaDataToDb
     
     StringBuilder sbSql;
     
-    if (_todb.equals("CUBRID"))
-    	sbSql = new StringBuilder("CREATE TABLE "+mt.getName()+"(");
+    if (_todb.equals("CUBRID")) {
+    	String name = mt.getName();
+    	if (!name.contains("\"")) {
+    		name = "\"" + name + "\"";
+    	}
+    	sbSql = new StringBuilder("CREATE TABLE "+name+"(");
+    }
     else
     	sbSql = new StringBuilder("CREATE TABLE "+qiTable.format()+"(");
     List<List<String>> llColumnNames = mt.getColumnNames(supportsArrays(),supportsUdts());
@@ -434,8 +447,15 @@ public class MetaDataToDb
       {
         if (iColumn > 0)
           sbPrimaryKey.append(",");
-        String sMappedColumnName = tm.getMappedColumnName(mpk.getColumn(iColumn));
-        sbPrimaryKey.append(SqlLiterals.formatId(sMappedColumnName));
+        
+        String pkName = SqlLiterals.formatId(tm.getMappedColumnName(mpk.getColumn(iColumn)));
+        if (_todb.equals("CUBRID")) {
+        	if (!pkName.contains("\"")) {
+        		pkName = "\"" + pkName + "\"";
+        	}
+        }
+
+        sbPrimaryKey.append(pkName);
       }
       sbPrimaryKey.append(")");
       sbSql.append(",\r\n");
