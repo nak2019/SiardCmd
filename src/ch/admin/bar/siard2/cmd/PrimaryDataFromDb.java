@@ -232,7 +232,13 @@ public class PrimaryDataFromDb extends PrimaryDataTransfer
           oValue = Double.valueOf(rs.getDouble(iPosition));
           break;
         case Types.DATE:
-          oValue = rs.getDate(iPosition);
+          if (_dbms.equals("Oracle")) {
+        		 mc.setPreType(Types.TIMESTAMP, 0, mc.getScale());
+           oValue = rs.getTimestamp(iPosition);
+        	 }
+          else {
+        		 oValue = rs.getDate(iPosition);
+        	 }
           break;
         case Types.TIME:
           oValue = rs.getTime(iPosition);
